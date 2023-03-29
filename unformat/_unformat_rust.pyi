@@ -1,13 +1,14 @@
 from __future__ import annotations
+from typing import Any
 from typing_extensions import Self
 
-def parse(s: str):
+__version__: str
+
+def is_named_pattern(ptn: str) -> bool:
     ...
 
 class FormatPatternTrait:
-    def from_string(cls, s: str) -> Self:
-        ...
-    def parse(self, s: str):
+    def unformat(self, s: str) -> tuple[list[str], list[Any]]:
         ...
 
 class FormatPattern(FormatPatternTrait):
