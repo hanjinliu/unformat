@@ -78,7 +78,7 @@ impl FormatPattern {
     }
 
     pub fn matches(&self, s: String) -> bool {
-        return self.parse_string(&s).is_err();
+        return self.parse_string(&s).is_ok();
     }
 
     pub fn formats(&self) -> Vec<String> {
@@ -121,13 +121,17 @@ fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &String) -> PyResult<V
     idx += consts[0].len();
     
     for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
-        if cst.len() == 0 {
-            
-        }
         match s[idx..].split_once(cst) {
             Some((_s0, _s1)) => {
-                idx += _s0.len() + cst.len();
-                _vars.push(NamedVar{ value: _s0.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
+                // NOTE: calling split_once with "" is an exceptional case.
+                // "a".split_once("") returns Some(("", "a")), not Somoe(("a", "")).
+                if cst.len() > 0 {
+                    idx += _s0.len() + cst.len();
+                    _vars.push(NamedVar{ value: _s0.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
+                } else {
+                    idx += _s1.len();
+                    _vars.push(NamedVar{ value: _s1.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
+                }
             },
             None => {
                 return Err(
@@ -139,7 +143,6 @@ fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &String) -> PyResult<V
         }
     }
     if s.len() != idx {
-        println!("{} {}", s.len(), idx);
         return Err(
             PyErr::new::<PyValueError, _>(
                 format!("Input should ends with '{}'.", _str_repr(&consts[consts.len() - 1]))
@@ -207,7 +210,7 @@ impl NamedFormatPattern {
     }
 
     pub fn matches(&self, s: String) -> bool {
-        return self.parse_string(&s).is_err();
+        return self.parse_string(&s).is_ok();
     }
 
     pub fn formats(&self) -> Vec<String> {
