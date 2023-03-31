@@ -66,6 +66,9 @@ class Pattern:
         _vals = [fmt(v) for fmt, v in zip(self._fmts, values)]
         return Values(_vals, keys)
     
+    def match(self, s: str) -> bool:
+        return self._rust_obj.matches(s)
+    
 def compile(ptn: str) -> Pattern:
     if is_named_pattern(ptn):
         rust_obj = NamedFormatPattern(ptn)
@@ -75,3 +78,6 @@ def compile(ptn: str) -> Pattern:
 
 def unformat(ptn: str, s: str) -> Values:
     return compile(ptn).unformat(s)
+
+def match(ptn: str, s: str) -> bool:
+    return compile(ptn).match(s)
