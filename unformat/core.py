@@ -52,24 +52,29 @@ class Values(Sequence[Any]):
             raise ValueError("Values are not named")
 
     def asdict(self) -> dict[str, Any]:
-        if self._keys:
-            return dict(self.items())
-        else:
-            raise ValueError("Values are not named")
+        return dict(self.items())
+
 
 class Pattern:
     def __init__(self, obj: _RustFormatPattern) -> None:
         self._rust_obj = obj
         self._fmts = [_FMT_FUNCS[f] for f in obj.formats()]
     
+    def __repr__(self) -> str:
+        cname = self.__class__.__name__
+        return f"{cname}({self._rust_obj.pattern()!r})"
+    
     def unformat(self, s: str) -> Values:
+        """Unformat a string using the pattern."""
         keys, values = self._rust_obj.unformat(s)
         _vals = [fmt(v) for fmt, v in zip(self._fmts, values)]
         return Values(_vals, keys)
     
     def match(self, s: str) -> bool:
+        """Check if the string matches the pattern."""
         return self._rust_obj.matches(s)
-    
+
+
 def compile(ptn: str) -> Pattern:
     if is_named_pattern(ptn):
         rust_obj = NamedFormatPattern(ptn)

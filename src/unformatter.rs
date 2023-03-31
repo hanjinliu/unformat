@@ -1,4 +1,4 @@
-use std::{iter, collections::HashMap};
+use std::{iter, collections::{HashMap, HashSet}};
 use super::vars::{Var, NamedVar};
 use pyo3::{prelude::*, exceptions::PyValueError};
 
@@ -92,6 +92,10 @@ impl FormatPattern {
         }
         formats
     }
+
+    pub fn pattern(&self) -> String {
+        join_string(&self.consts, &self.vars)
+    }
 }
 
 impl NamedFormatPattern {
@@ -152,6 +156,22 @@ fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &String) -> PyResult<V
     Ok(_vars)
 }
 
+fn join_string(consts: &Vec<String>, vars: &Vec<Var>) -> String {
+    let mut s = consts[0].clone();
+    for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
+        match var.fmt {
+            Some(ref fmt) => {
+                s += &format!("{{{}:{}}}", var.value, fmt);
+            },
+            None => {
+                s += &format!("{{{}}}", var.value);
+            }
+        }
+        s += cst;
+    }
+    s
+}
+
 #[pymethods]
 impl NamedFormatPattern {
     #[new]
@@ -162,6 +182,7 @@ impl NamedFormatPattern {
         let mut cur_var = String::new();
         let mut cur_const: String = String::new();
         let mut last_char = ' ';
+        let mut existing: HashSet<String> = HashSet::new();
         for c in s.chars() {
             if c == '{' {
                 if last_char == '}' {
@@ -185,7 +206,12 @@ impl NamedFormatPattern {
                     let msg = format!("Invalid format string: {}", cur_var);
                     return Err(PyErr::new::<PyValueError, _>(msg));
                 };
-                vars.push(Var{ value: name, fmt });
+                if existing.contains(&name) {
+                    let msg = format!("Duplicate variable name: {}", name);
+                    return Err(PyErr::new::<PyValueError, _>(msg));
+                }
+                vars.push(Var{ value: name.clone(), fmt });
+                existing.insert(name);
                 cur_var.clear();
             } else if active {
                 cur_var.push(c);
@@ -223,6 +249,10 @@ impl NamedFormatPattern {
             }
         }
         formats
+    }
+
+    pub fn pattern(&self) -> String {
+        join_string(&self.consts, &self.vars)
     }
 }
 
