@@ -46,7 +46,8 @@ class Values(Sequence[Any]):
     
     def items(self) -> Iterator[tuple[str, Any]]:
         if self._keys:
-            return zip(self._keys.keys(), self._values)
+            for name, idx in self._keys.items():
+                yield name, self._values[idx]
         else:
             raise ValueError("Values are not named")
 

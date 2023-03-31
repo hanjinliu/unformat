@@ -48,7 +48,7 @@ impl FormatPattern {
                     (name, fmt)
                 } else if split.len() == 2 {
                     let name = split[0].to_string();
-                    let fmt = Some(split[1].to_string());
+                    let fmt = Some(split[1].trim().to_string());
                     (name, fmt)
                 } else {
                     let msg = format!("Invalid format string: {}", cur_var);
@@ -179,7 +179,7 @@ impl NamedFormatPattern {
                     (name, fmt)
                 } else if split.len() == 2 {
                     let name = split[0].to_string();
-                    let fmt = Some(split[1].to_string());
+                    let fmt = Some(split[1].trim().to_string());
                     (name, fmt)
                 } else {
                     let msg = format!("Invalid format string: {}", cur_var);
