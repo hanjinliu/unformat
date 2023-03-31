@@ -94,10 +94,21 @@ impl FormatPattern {
         let keys: HashMap<String, usize> = HashMap::new();
         Ok((keys, values))
     }
+
+    pub fn formats(&self) -> Vec<String> {
+        let mut formats = Vec::new();
+        for var in self.vars.iter() {
+            if let Some(fmt) = &var.fmt {
+                formats.push(fmt.clone());
+            } else {
+                formats.push(String::new());
+            }
+        }
+        formats
+    }
 }
 
 impl NamedFormatPattern {
-    
     pub fn parse_string(&self, s: String) -> PyResult<Vec<NamedVar>> {
         let mut idx = 0;
         let mut vars: Vec<NamedVar> = Vec::new();
@@ -173,6 +184,18 @@ impl NamedFormatPattern {
             values.push(var.value.clone());
         }
         Ok((keys, values))
+    }
+
+    pub fn formats(&self) -> Vec<String> {
+        let mut formats = Vec::new();
+        for var in self.vars.iter() {
+            if let Some(fmt) = &var.fmt {
+                formats.push(fmt.clone());
+            } else {
+                formats.push(String::new());
+            }
+        }
+        formats
     }
 }
 
