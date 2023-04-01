@@ -4,6 +4,7 @@ requires = [
     "typing-extensions>=4.5.0",
 ]
 build-backend = "maturin"
+license = "MIT"
 
 [project]
 name = "unformat"
