@@ -1,9 +1,11 @@
 from __future__ import annotations
-
 from typing import Any, Callable, Sequence, Iterator, Union
+from typing_extensions import dataclass_transform, Self
+from dataclasses import dataclass
 from ._unformat_rust import is_named_pattern, FormatPattern, NamedFormatPattern
 
 _RustFormatPattern = Union[FormatPattern, NamedFormatPattern]
+
 _FMT_FUNCS: dict[str, Callable[[str], Any]] = {
     "int": int,
     "float": float,
@@ -73,6 +75,10 @@ class Pattern:
     def match(self, s: str) -> bool:
         """Check if the string matches the pattern."""
         return self._rust_obj.matches(s)
+    
+    def with_formats(self, formats: Sequence[str]) -> Pattern:
+        """Return a new Pattern with the given formats."""
+        return Pattern(self._rust_obj.with_formats(formats))
 
 
 def compile(ptn: str) -> Pattern:
@@ -87,3 +93,54 @@ def unformat(ptn: str, s: str) -> Values:
 
 def match(ptn: str, s: str) -> bool:
     return compile(ptn).match(s)
+
+
+@dataclass_transform()
+class UnformattableMeta(type):
+    __unformat_pattern__: Pattern
+    pattern: str = ""
+    
+    def __new__(mcls, name, bases, namespace, **kwargs):
+        cls: UnformattableMeta = dataclass(
+            super().__new__(mcls, name, bases, namespace, **kwargs)
+        )
+        if cls.pattern:
+            ptn = compile(cls.pattern)
+            _vars = ptn._rust_obj.variables()
+            if set(_vars) != cls.__dataclass_fields__.keys():
+                raise ValueError("variables must match dataclass fields")
+            _annot = cls.__annotations__
+            formats = []
+            for fmt, var in zip(ptn._rust_obj.formats(), _vars):
+                _ann = _annot[var]
+                if isinstance(_ann, type):
+                    _ann = _ann.__name__
+                if fmt and _ann != fmt:
+                    raise ValueError(f"format mismatch at {var}. {fmt} in pattern, {_ann} in annotation")
+                formats.append(_ann)
+            cls.__unformat_pattern__ = ptn.with_formats(formats)
+        return cls
+
+class UnformatModel(metaclass=UnformattableMeta):
+    """
+    Base class for model-based unformatting.
+    
+    Subclass is a dataclass and must set the `pattern` class attribute.
+    
+    >>> class Version(UnformatModel):
+    ...     pattern = "{major}.{minor}.{micro}"
+    ...     major: int
+    ...     minor: int
+    ...     micro: int
+    
+    Now you can unformat using `from_string` class method:
+    
+    >>> Version.from_string("1.2.3")  # Version(major=1, minor=2, micro=3)
+    """
+    @classmethod
+    def from_string(cls, s: str) -> Self:
+        return cls(**cls.__unformat_pattern__.unformat(s).asdict())
+
+    def __init_subclass__(cls) -> None:
+        if cls.pattern == "":
+            raise ValueError("pattern must be set")

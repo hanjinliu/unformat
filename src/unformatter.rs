@@ -93,8 +93,21 @@ impl FormatPattern {
         formats
     }
 
+    pub fn variables(&self) -> Vec<String> {
+        let mut variables = Vec::new();
+        for var in self.vars.iter() {
+            variables.push(var.value.clone());
+        }
+        variables
+    }
+
     pub fn pattern(&self) -> String {
         join_string(&self.consts, &self.vars)
+    }
+
+    pub fn with_formats(&self, formats: Vec<String>) -> PyResult<FormatPattern> {
+        let vars = update_format(&self.vars, &formats)?;
+        Ok(FormatPattern{ consts: self.consts.clone(), vars })
     }
 }
 
@@ -172,6 +185,16 @@ fn join_string(consts: &Vec<String>, vars: &Vec<Var>) -> String {
     s
 }
 
+fn update_format(vars: &Vec<Var>, formats: &Vec<String>) -> PyResult<Vec<Var>> {
+    if formats.len() != vars.len() {
+        return Err(PyErr::new::<PyValueError, _>("Length of formats must be same as length of variables."));
+    }
+    let mut out = Vec::new();
+    for (var, fmt) in iter::zip(vars.iter(), formats.iter()) {
+        out.push(Var{ value: var.value.clone(), fmt: Some(fmt.clone()) });
+    }
+    Ok(out)
+}
 #[pymethods]
 impl NamedFormatPattern {
     #[new]
@@ -251,8 +274,21 @@ impl NamedFormatPattern {
         formats
     }
 
+    pub fn variables(&self) -> Vec<String> {
+        let mut variables = Vec::new();
+        for var in self.vars.iter() {
+            variables.push(var.value.clone());
+        }
+        variables
+    }
+
     pub fn pattern(&self) -> String {
         join_string(&self.consts, &self.vars)
+    }
+    
+    pub fn with_formats(&self, formats: Vec<String>) -> PyResult<NamedFormatPattern> {
+        let vars = update_format(&self.vars, &formats)?;
+        Ok(NamedFormatPattern{ consts: self.consts.clone(), vars })
     }
 }
 
