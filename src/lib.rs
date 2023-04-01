@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use pyo3::{prelude::*, exceptions::*};
 mod unformatter;
 mod vars;
@@ -10,7 +12,7 @@ enum PatternType {
 }
 
 #[pyfunction]
-fn is_named_pattern(ptn: String) -> PyResult<bool> {
+fn is_named_pattern(ptn: &str) -> PyResult<bool> {
     // check the string pattern type
     let mut active = false;
     let mut ptntype = PatternType::Undef;
@@ -26,7 +28,6 @@ fn is_named_pattern(ptn: String) -> PyResult<bool> {
                 return Err(PyErr::new::<PyValueError, _>("Invalid format pattern: `}` closed before `{`."));
             }
             active = false;
-            println!("cur: {}", cur);
             if cur.len() > 0 {
                 if ptntype == PatternType::Anonymous {
                     return Err(PyErr::new::<PyValueError, _>("Uneven format pattern"));
@@ -58,6 +59,19 @@ fn is_named_pattern(ptn: String) -> PyResult<bool> {
     }
 }
 
+#[pyfunction]
+fn unformat(ptn: &str, text: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
+    if is_named_pattern(ptn)? {
+        let ptn = unformatter::NamedFormatPattern::new(ptn)?;
+        let (vars, text) = ptn.unformat(text)?;
+        Ok((vars, text))
+    } else {
+        let ptn = unformatter::FormatPattern::new(ptn)?;
+        let (vars, text) = ptn.unformat(text)?;
+        Ok((vars, text))
+    }
+}
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn _unformat_rust(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -69,5 +83,6 @@ fn _unformat_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<unformatter::FormatPattern>()?;
     m.add_class::<unformatter::NamedFormatPattern>()?;
     m.add_function(wrap_pyfunction!(is_named_pattern, m)?)?;
+    m.add_function(wrap_pyfunction!(unformat, m)?)?;
     Ok(())
 }

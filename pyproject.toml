@@ -20,3 +20,4 @@ classifiers = [
 features = ["pyo3/extension-module"]
 module-name = "unformat._unformat_rust"
 bindings = "pyo3"
+include = ["LICENSE", "README.md"]

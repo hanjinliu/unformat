@@ -16,7 +16,7 @@ pub struct NamedFormatPattern {
 }
 
 impl FormatPattern {
-    pub fn parse_string(&self, s: &String) -> PyResult<Vec<NamedVar>> {
+    pub fn parse_string(&self, s: &str) -> PyResult<Vec<NamedVar>> {
         parse_string(&self.consts, &self.vars, s)
     }
 }
@@ -24,7 +24,7 @@ impl FormatPattern {
 #[pymethods]
 impl FormatPattern {
     #[new]
-    pub fn new(s: String) -> PyResult<Self> {
+    pub fn new(s: &str) -> PyResult<Self> {
         let mut vars: Vec<Var> = Vec::new();
         let mut consts: Vec<String> = Vec::new();
         let mut active = false;
@@ -67,8 +67,8 @@ impl FormatPattern {
         Ok(Self { consts, vars })
     }
 
-    pub fn unformat(&self, s: String) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
-        let vars = self.parse_string(&s)?;
+    pub fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
+        let vars = self.parse_string(s)?;
         let mut values = Vec::new();
         for var in vars {
             values.push(var.value);
@@ -99,7 +99,7 @@ impl FormatPattern {
 }
 
 impl NamedFormatPattern {
-    pub fn parse_string(&self, s: &String) -> PyResult<Vec<NamedVar>> {
+    pub fn parse_string(&self, s: &str) -> PyResult<Vec<NamedVar>> {
         parse_string(&self.consts, &self.vars, s)
     }
 }
@@ -112,7 +112,7 @@ fn _str_repr(s: &String) -> String {
     }
 }
 
-fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &String) -> PyResult<Vec<NamedVar>> {
+fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &str) -> PyResult<Vec<NamedVar>> {
     let mut idx = 0;
     let mut _vars: Vec<NamedVar> = Vec::new();
     if !s.starts_with(&consts[0]) {
@@ -175,7 +175,7 @@ fn join_string(consts: &Vec<String>, vars: &Vec<Var>) -> String {
 #[pymethods]
 impl NamedFormatPattern {
     #[new]
-    pub fn new(s: String) -> PyResult<Self> {
+    pub fn new(s: &str) -> PyResult<Self> {
         let mut vars: Vec<Var> = Vec::new();
         let mut consts: Vec<String> = Vec::new();
         let mut active = false;
@@ -224,8 +224,8 @@ impl NamedFormatPattern {
         Ok(Self { consts, vars })
     }
 
-    pub fn unformat(&self, s: String) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
-        let vars = self.parse_string(&s)?;
+    pub fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
+        let vars = self.parse_string(s)?;
         let mut keys = HashMap::new();
         let mut values = Vec::new();
         for (idx, var) in vars.iter().enumerate() {
@@ -235,8 +235,8 @@ impl NamedFormatPattern {
         Ok((keys, values))
     }
 
-    pub fn matches(&self, s: String) -> bool {
-        return self.parse_string(&s).is_ok();
+    pub fn matches(&self, s: &str) -> bool {
+        return self.parse_string(s).is_ok();
     }
 
     pub fn formats(&self) -> Vec<String> {
@@ -261,7 +261,7 @@ impl NamedFormatPattern {
 mod test_from_string {
     #[test]
     fn basic() {
-        let s = "aa{}bb{}cc".to_string();
+        let s = "aa{}bb{}cc";
         let model = super::FormatPattern::new(s).unwrap();
         assert_eq!(model.consts, vec!["aa", "bb", "cc"]);
         assert_eq!(model.vars, vec![
@@ -272,7 +272,7 @@ mod test_from_string {
 
     #[test]
     fn with_name() {
-        let s = "aa{x}bb{y}cc".to_string();
+        let s = "aa{x}bb{y}cc";
         let model = super::FormatPattern::new(s).unwrap();
         assert_eq!(model.consts, vec!["aa", "bb", "cc"]);
         assert_eq!(model.vars, vec![
@@ -283,7 +283,7 @@ mod test_from_string {
 
     #[test]
     fn with_fmt() {
-        let s = "aa{:str}bb{:int}cc".to_string();
+        let s = "aa{:str}bb{:int}cc";
         let model = super::FormatPattern::new(s).unwrap();
         assert_eq!(model.consts, vec!["aa", "bb", "cc"]);
         assert_eq!(model.vars, vec![
@@ -295,7 +295,7 @@ mod test_from_string {
 
     #[test]
     fn with_name_and_fmt() {
-        let s = "aa{x:str}bb{y:int}cc".to_string();
+        let s = "aa{x:str}bb{y:int}cc";
         let model = super::NamedFormatPattern::new(s).unwrap();
         assert_eq!(model.consts, vec!["aa", "bb", "cc"]);
         assert_eq!(model.vars, vec![
@@ -306,14 +306,14 @@ mod test_from_string {
 
     #[test]
     fn err_invalid_format_string() {
-        let s = "aa{:str}bb{:int:}cc".to_string();
+        let s = "aa{:str}bb{:int:}cc";
         let model = super::FormatPattern::new(s);
         assert!(model.is_err());
     }
 
     #[test]
     fn err_tandem_brace() {
-        let s = "aa{}{}c".to_string();
+        let s = "aa{}{}c";
         let model = super::FormatPattern::new(s);
         assert!(model.is_err());
     }
@@ -325,7 +325,7 @@ mod test_from_string {
 mod test_parse {
     #[test]
     fn basic() {
-        let model = super::FormatPattern::new("aa{}bbb{}cccc".to_string()).unwrap();
+        let model = super::FormatPattern::new("aa{}bbb{}cccc").unwrap();
         let result = model.parse_string(&"aa1bbb2cccc".to_string()).unwrap();
         assert_eq!(result, vec![
             super::NamedVar{ value: "1".to_string(), fmt: None, name: "".to_string() },
@@ -335,7 +335,7 @@ mod test_parse {
 
     #[test]
     fn ends_with_brace() {
-        let s = "{}bb{}".to_string();
+        let s = "{}bb{}";
         let model = super::FormatPattern::new(s).unwrap();
         assert_eq!(model.consts, vec!["", "bb", ""]);
         assert_eq!(model.vars, vec![
@@ -352,7 +352,7 @@ mod test_parse {
 
     #[test]
     fn with_name_ends_with_brace() {
-        let s = "{x}bb{y}".to_string();
+        let s = "{x}bb{y}";
         let model = super::FormatPattern::new(s).unwrap();
         assert_eq!(model.consts, vec!["", "bb", ""]);
         assert_eq!(model.vars, vec![

@@ -1,6 +1,6 @@
 [package]
 name = "unformat_rust"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 homepage = "https://github.com/hanjinliu/unformat"
 repository = "https://github.com/hanjinliu/unformat.git"

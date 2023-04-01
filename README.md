@@ -5,6 +5,12 @@ Python string unformatter.
 Simple string pattern matching using f-string-like syntax.
 This module cannot do anything more than `re` but is much easier to use.
 
+### Installation
+
+```shell
+pip install unformat
+```
+
 ### Usage
 
 ```Python
