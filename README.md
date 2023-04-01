@@ -14,9 +14,27 @@ pip install unformat
 ### Usage
 
 ```Python
-from unformat import unformat
+from unformat import compile, unformat
 
 unformat("{name}_{idx}.csv", "data_001.csv")  # Values(name='data', idx='001')
 unformat("{name}_{idx:int}.csv", "data_001.csv")  # Values(name='data', idx=1)
 unformat("{name}_{idx}.csv", "data001.csv")  # Error!
+
+# object oriented
+ptn = compile("{name}_{idx}.csv")
+ptn.unformat("data_001.csv")  # Values(name='data', idx='001')
+```
+
+Model-based unformatting is also supported.
+
+```Python
+from unformat import UnformatModel
+
+class Version(UnformatModel):
+    pattern = "{major}.{minor}.{micro}"
+    major: int
+    minor: int
+    micro: int
+
+version = Version.from_string("0.2.1")  # Version(major=0, minor=2, micro=1)
 ```
