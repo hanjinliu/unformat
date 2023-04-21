@@ -2,6 +2,112 @@ use std::{iter, collections::{HashMap, HashSet}};
 use super::vars::{Var, NamedVar};
 use pyo3::{prelude::*, exceptions::PyValueError};
 
+pub trait PatternTrait {
+    fn consts(&self) -> &Vec<String>;
+    fn vars(&self) -> &Vec<Var>;
+
+    fn parse_string(&self, s: &str) -> PyResult<Vec<NamedVar>> {
+        let consts = self.consts();
+        let vars = self.vars();
+        let mut idx = 0;
+        let mut _vars: Vec<NamedVar> = Vec::new();
+        if !s.starts_with(&consts[0]) {
+            return Err(
+                PyErr::new::<PyValueError, _>(
+                    format!("Input should starts with {}", _str_repr(&consts[0]))
+                )
+            );
+        }
+        idx += consts[0].len();
+
+        for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
+            match s[idx..].split_once(cst) {
+                Some((_s0, _s1)) => {
+                    // NOTE: calling split_once with "" is an exceptional case.
+                    // "a".split_once("") returns Some(("", "a")), not Somoe(("a", "")).
+                    if cst.len() > 0 {
+                        idx += _s0.len() + cst.len();
+                        _vars.push(NamedVar{ value: _s0.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
+                    } else {
+                        idx += _s1.len();
+                        _vars.push(NamedVar{ value: _s1.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
+                    }
+                },
+                None => {
+                    return Err(
+                        PyErr::new::<PyValueError, _>(
+                            format!("Input does not contain '{}'.", _str_repr(cst))
+                        )
+                    )
+                }
+            }
+        }
+        if s.len() != idx {
+            return Err(
+                PyErr::new::<PyValueError, _>(
+                    format!("Input should ends with '{}'.", _str_repr(&consts[consts.len() - 1]))
+                )
+            );
+        }
+        Ok(_vars)
+    }
+
+    fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)>;
+
+    fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
+        let mut keys: HashMap<String, usize> = HashMap::new();
+        let mut values: Vec<Vec<String>> = Vec::new();
+        for s in s {
+            let (k, v) = self.unformat(s)?;
+            keys.extend(k);
+            values.push(v);
+        }
+        Ok((keys, values))
+    }
+
+    fn matches(&self, s: String) -> bool {
+        return self.parse_string(&s).is_ok();
+    }
+
+    fn formats(&self) -> Vec<String> {
+        let mut formats = Vec::new();
+        for var in self.vars().iter() {
+            if let Some(fmt) = &var.fmt {
+                formats.push(fmt.clone());
+            } else {
+                formats.push(String::new());
+            }
+        }
+        formats
+    }
+
+    fn variables(&self) -> Vec<String> {
+        let mut variables = Vec::new();
+        for var in self.vars().iter() {
+            variables.push(var.value.clone());
+        }
+        variables
+    }
+
+    fn pattern(&self) -> String {
+        let consts = self.consts();
+        let vars = self.vars();
+        let mut s = consts[0].clone();
+        for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
+            match var.fmt {
+                Some(ref fmt) => {
+                    s += &format!("{{{}:{}}}", var.value, fmt);
+                },
+                None => {
+                    s += &format!("{{{}}}", var.value);
+                }
+            }
+            s += cst;
+        }
+        s
+    }
+
+}
 
 #[pyclass]
 pub struct FormatPattern {
@@ -15,9 +121,23 @@ pub struct NamedFormatPattern {
     pub vars: Vec<Var>,
 }
 
-impl FormatPattern {
-    pub fn parse_string(&self, s: &str) -> PyResult<Vec<NamedVar>> {
-        parse_string(&self.consts, &self.vars, s)
+impl PatternTrait for FormatPattern {
+    fn consts(&self) -> &Vec<String> {
+        &self.consts
+    }
+
+    fn vars(&self) -> &Vec<Var> {
+        &self.vars
+    }
+
+    fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
+        let vars = self.parse_string(s)?;
+        let mut values = Vec::new();
+        for var in vars {
+            values.push(var.value);
+        }
+        let keys: HashMap<String, usize> = HashMap::new();
+        Ok((keys, values))
     }
 }
 
@@ -68,52 +188,27 @@ impl FormatPattern {
     }
 
     pub fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
-        let vars = self.parse_string(s)?;
-        let mut values = Vec::new();
-        for var in vars {
-            values.push(var.value);
-        }
-        let keys: HashMap<String, usize> = HashMap::new();
-        Ok((keys, values))
+        PatternTrait::unformat(self, s)
     }
 
     pub fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
-        let mut keys: HashMap<String, usize> = HashMap::new();
-        let mut values: Vec<Vec<String>> = Vec::new();
-        for s in s {
-            let (k, v) = self.unformat(s)?;
-            keys.extend(k);
-            values.push(v);
-        }
-        Ok((keys, values))
+        PatternTrait::unformat_all(self, s)
     }
 
     pub fn matches(&self, s: String) -> bool {
-        return self.parse_string(&s).is_ok();
+        PatternTrait::matches(self, s)
     }
 
     pub fn formats(&self) -> Vec<String> {
-        let mut formats = Vec::new();
-        for var in self.vars.iter() {
-            if let Some(fmt) = &var.fmt {
-                formats.push(fmt.clone());
-            } else {
-                formats.push(String::new());
-            }
-        }
-        formats
+        PatternTrait::formats(self)
     }
 
     pub fn variables(&self) -> Vec<String> {
-        let mut variables = Vec::new();
-        for var in self.vars.iter() {
-            variables.push(var.value.clone());
-        }
-        variables
+        PatternTrait::variables(self)
     }
 
     pub fn pattern(&self) -> String {
-        join_string(&self.consts, &self.vars)
+        PatternTrait::pattern(self)
     }
 
     pub fn with_formats(&self, formats: Vec<String>) -> PyResult<FormatPattern> {
@@ -122,9 +217,24 @@ impl FormatPattern {
     }
 }
 
-impl NamedFormatPattern {
-    pub fn parse_string(&self, s: &str) -> PyResult<Vec<NamedVar>> {
-        parse_string(&self.consts, &self.vars, s)
+impl PatternTrait for NamedFormatPattern {
+    fn consts(&self) -> &Vec<String> {
+        &self.consts
+    }
+
+    fn vars(&self) -> &Vec<Var> {
+        &self.vars
+    }
+
+    fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
+        let vars = self.parse_string(s)?;
+        let mut keys = HashMap::new();
+        let mut values = Vec::new();
+        for (idx, var) in vars.iter().enumerate() {
+            keys.insert(var.name.clone(), idx);
+            values.push(var.value.clone());
+        }
+        Ok((keys, values))
     }
 }
 
@@ -134,66 +244,6 @@ fn _str_repr(s: &String) -> String {
     } else {
         s.clone()
     }
-}
-
-fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &str) -> PyResult<Vec<NamedVar>> {
-    let mut idx = 0;
-    let mut _vars: Vec<NamedVar> = Vec::new();
-    if !s.starts_with(&consts[0]) {
-        return Err(
-            PyErr::new::<PyValueError, _>(
-                format!("Input should starts with {}", _str_repr(&consts[0]))
-            )
-        );
-    }
-    idx += consts[0].len();
-
-    for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
-        match s[idx..].split_once(cst) {
-            Some((_s0, _s1)) => {
-                // NOTE: calling split_once with "" is an exceptional case.
-                // "a".split_once("") returns Some(("", "a")), not Somoe(("a", "")).
-                if cst.len() > 0 {
-                    idx += _s0.len() + cst.len();
-                    _vars.push(NamedVar{ value: _s0.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
-                } else {
-                    idx += _s1.len();
-                    _vars.push(NamedVar{ value: _s1.to_string(), fmt: var.fmt.clone(), name: var.value.clone() });
-                }
-            },
-            None => {
-                return Err(
-                    PyErr::new::<PyValueError, _>(
-                        format!("Input does not contain '{}'.", _str_repr(cst))
-                    )
-                )
-            }
-        }
-    }
-    if s.len() != idx {
-        return Err(
-            PyErr::new::<PyValueError, _>(
-                format!("Input should ends with '{}'.", _str_repr(&consts[consts.len() - 1]))
-            )
-        );
-    }
-    Ok(_vars)
-}
-
-fn join_string(consts: &Vec<String>, vars: &Vec<Var>) -> String {
-    let mut s = consts[0].clone();
-    for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
-        match var.fmt {
-            Some(ref fmt) => {
-                s += &format!("{{{}:{}}}", var.value, fmt);
-            },
-            None => {
-                s += &format!("{{{}}}", var.value);
-            }
-        }
-        s += cst;
-    }
-    s
 }
 
 fn update_format(vars: &Vec<Var>, formats: &Vec<String>) -> PyResult<Vec<Var>> {
@@ -206,6 +256,7 @@ fn update_format(vars: &Vec<Var>, formats: &Vec<String>) -> PyResult<Vec<Var>> {
     }
     Ok(out)
 }
+
 #[pymethods]
 impl NamedFormatPattern {
     #[new]
@@ -259,53 +310,27 @@ impl NamedFormatPattern {
     }
 
     pub fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)> {
-        let vars = self.parse_string(s)?;
-        let mut keys = HashMap::new();
-        let mut values = Vec::new();
-        for (idx, var) in vars.iter().enumerate() {
-            keys.insert(var.name.clone(), idx);
-            values.push(var.value.clone());
-        }
-        Ok((keys, values))
+        PatternTrait::unformat(self, s)
     }
 
     pub fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
-        let mut keys: HashMap<String, usize> = HashMap::new();
-        let mut values: Vec<Vec<String>> = Vec::new();
-        for s in s {
-            let (k, v) = self.unformat(s)?;
-            keys.extend(k);
-            values.push(v);
-        }
-        Ok((keys, values))
+        PatternTrait::unformat_all(self, s)
     }
 
-    pub fn matches(&self, s: &str) -> bool {
-        return self.parse_string(s).is_ok();
+    pub fn matches(&self, s: String) -> bool {
+        PatternTrait::matches(self, s)
     }
 
     pub fn formats(&self) -> Vec<String> {
-        let mut formats = Vec::new();
-        for var in self.vars.iter() {
-            if let Some(fmt) = &var.fmt {
-                formats.push(fmt.clone());
-            } else {
-                formats.push(String::new());
-            }
-        }
-        formats
+        PatternTrait::formats(self)
     }
 
     pub fn variables(&self) -> Vec<String> {
-        let mut variables = Vec::new();
-        for var in self.vars.iter() {
-            variables.push(var.value.clone());
-        }
-        variables
+        PatternTrait::variables(self)
     }
 
     pub fn pattern(&self) -> String {
-        join_string(&self.consts, &self.vars)
+        PatternTrait::pattern(self)
     }
 
     pub fn with_formats(&self, formats: Vec<String>) -> PyResult<NamedFormatPattern> {
@@ -381,6 +406,8 @@ mod test_from_string {
 
 #[cfg(test)]
 mod test_parse {
+    use crate::unformatter::PatternTrait;
+
     #[test]
     fn basic() {
         let model = super::FormatPattern::new("aa{}bbb{}cccc").unwrap();
