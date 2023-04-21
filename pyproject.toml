@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "maturin>=0.14,<0.15", 
+    "maturin>=0.14,<0.15",
     "typing-extensions>=4.5.0",
 ]
 build-backend = "maturin"
@@ -23,4 +23,3 @@ classifiers = [
 features = ["pyo3/extension-module"]
 module-name = "unformat._unformat_rust"
 bindings = "pyo3"
-include = ["LICENSE", "README.md"]

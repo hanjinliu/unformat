@@ -136,7 +136,7 @@ fn parse_string(consts: &Vec<String>, vars: &Vec<Var>, s: &str) -> PyResult<Vec<
         );
     }
     idx += consts[0].len();
-    
+
     for (cst, var) in iter::zip(consts[1..].iter(), vars.iter()) {
         match s[idx..].split_once(cst) {
             Some((_s0, _s1)) => {
@@ -285,7 +285,7 @@ impl NamedFormatPattern {
     pub fn pattern(&self) -> String {
         join_string(&self.consts, &self.vars)
     }
-    
+
     pub fn with_formats(&self, formats: Vec<String>) -> PyResult<NamedFormatPattern> {
         let vars = update_format(&self.vars, &formats)?;
         Ok(NamedFormatPattern{ consts: self.consts.clone(), vars })
