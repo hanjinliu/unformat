@@ -72,6 +72,19 @@ fn unformat(ptn: &str, text: &str) -> PyResult<(HashMap<String, usize>, Vec<Stri
     }
 }
 
+#[pyfunction]
+fn unformat_all(ptn: &str, text: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
+    if is_named_pattern(ptn)? {
+        let ptn = unformatter::NamedFormatPattern::new(ptn)?;
+        let (vars, text) = ptn.unformat_all(text)?;
+        Ok((vars, text))
+    } else {
+        let ptn = unformatter::FormatPattern::new(ptn)?;
+        let (vars, text) = ptn.unformat_all(text)?;
+        Ok((vars, text))
+    }
+}
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn _unformat_rust(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -84,5 +97,6 @@ fn _unformat_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<unformatter::NamedFormatPattern>()?;
     m.add_function(wrap_pyfunction!(is_named_pattern, m)?)?;
     m.add_function(wrap_pyfunction!(unformat, m)?)?;
+    m.add_function(wrap_pyfunction!(unformat_all, m)?)?;
     Ok(())
 }

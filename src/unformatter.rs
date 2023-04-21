@@ -77,6 +77,17 @@ impl FormatPattern {
         Ok((keys, values))
     }
 
+    pub fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
+        let mut keys: HashMap<String, usize> = HashMap::new();
+        let mut values: Vec<Vec<String>> = Vec::new();
+        for s in s {
+            let (k, v) = self.unformat(s)?;
+            keys.extend(k);
+            values.push(v);
+        }
+        Ok((keys, values))
+    }
+
     pub fn matches(&self, s: String) -> bool {
         return self.parse_string(&s).is_ok();
     }
@@ -254,6 +265,17 @@ impl NamedFormatPattern {
         for (idx, var) in vars.iter().enumerate() {
             keys.insert(var.name.clone(), idx);
             values.push(var.value.clone());
+        }
+        Ok((keys, values))
+    }
+
+    pub fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
+        let mut keys: HashMap<String, usize> = HashMap::new();
+        let mut values: Vec<Vec<String>> = Vec::new();
+        for s in s {
+            let (k, v) = self.unformat(s)?;
+            keys.extend(k);
+            values.push(v);
         }
         Ok((keys, values))
     }

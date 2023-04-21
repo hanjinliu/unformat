@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Sequence, Iterator, Union
+from typing import Any, Callable, Iterable, Sequence, Iterator, Union
 from typing_extensions import dataclass_transform, Self
 from dataclasses import dataclass
 from ._unformat_rust import is_named_pattern, FormatPattern, NamedFormatPattern
@@ -59,6 +59,13 @@ class Values(Sequence[Any]):
 
 
 class Pattern:
+    """
+    A compiled unformat pattern.
+
+    >>> ptn = Pattern.compile("{major}.{minor}.{micro}")
+    >>> ptn.unformat("1.2.3")  # Values([1, 2, 3])
+    """
+
     def __init__(self, obj: _RustFormatPattern) -> None:
         self._rust_obj = obj
         self._fmts = [_FMT_FUNCS[f] for f in obj.formats()]
@@ -72,6 +79,17 @@ class Pattern:
         keys, values = self._rust_obj.unformat(s)
         _vals = [fmt(v) for fmt, v in zip(self._fmts, values)]
         return Values(_vals, keys)
+
+    def unformat_all(self, s: Iterable[str]) -> list[Values]:
+        """Unformat a list of strings using the pattern."""
+        if not isinstance(s, Sequence):
+            s = list(s)
+        keys, values_list = self._rust_obj.unformat_all(s)
+        out: list[Values] = []
+        for values in values_list:
+            _vals = [fmt(v) for fmt, v in zip(self._fmts, values)]
+            out.append(Values(_vals, keys))
+        return out
 
     def match(self, s: str) -> bool:
         """Check if the string matches the pattern."""
@@ -101,6 +119,7 @@ def match(ptn: str, s: str) -> bool:
 @dataclass_transform()
 class UnformattableMeta(type):
     __unformat_pattern__: Pattern
+    __dataclass_fields__: dict
     pattern: str = ""
 
     def __new__(mcls, name, bases, namespace, **kwargs):
