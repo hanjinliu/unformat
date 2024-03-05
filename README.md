@@ -15,7 +15,7 @@ pip install -U unformat
 
 Unformatting returns a `list`-like object.
 
-```Python
+```python
 from unformat import compile, unformat
 
 unformat("{name}_{idx}.csv", "data_001.csv")  # Values(name='data', idx='001')
@@ -30,7 +30,7 @@ ptn.unformat("data_001.csv")  # Values(name='data', idx='001')
 
 Model-based unformatting is also supported.
 
-```Python
+```python
 from unformat import UnformatModel
 
 class Version(UnformatModel):

@@ -6,6 +6,11 @@ from ._unformat_rust import is_named_pattern, FormatPattern, NamedFormatPattern
 
 _RustFormatPattern = Union[FormatPattern, NamedFormatPattern]
 
+
+def _identity(x):
+    return x
+
+
 _FMT_FUNCS: dict[str, Callable[[str], Any]] = {
     "int": int,
     "float": float,
@@ -14,7 +19,7 @@ _FMT_FUNCS: dict[str, Callable[[str], Any]] = {
     "complex": complex,
     "bytes": bytes,
     "bytearray": bytearray,
-    "": lambda x: x,
+    "": _identity,
 }
 
 
@@ -46,6 +51,9 @@ class Values(Sequence[Any]):
         else:
             srepr = ", ".join(map(repr, self._values))
         return f"{cname}({srepr})"
+
+    def __eq__(self, other: Any) -> bool:
+        return self._values == list(other)
 
     def items(self) -> Iterator[tuple[str, Any]]:
         if self._keys:
@@ -81,8 +89,8 @@ class Pattern:
         return Values(_vals, keys)
 
     def unformat_all(self, s: Iterable[str]) -> list[Values]:
-        """Unformat a list of strings using the pattern."""
-        if not isinstance(s, Sequence):
+        """Unformat a sequence of strings using the pattern."""
+        if not isinstance(s, list):
             s = list(s)
         keys, values_list = self._rust_obj.unformat_all(s)
         out: list[Values] = []
@@ -90,6 +98,27 @@ class Pattern:
             _vals = [fmt(v) for fmt, v in zip(self._fmts, values)]
             out.append(Values(_vals, keys))
         return out
+
+    def unformat_to_dict(self, s: Iterable[str]) -> dict[str, list[Any]]:
+        """
+        Unformat a sequence of strings and return as a dict.
+
+        Examples
+        --------
+        >>> ptn = Pattern.compile("{month}_{day}")
+        >>> ptn.unformat_to_dict(["Jan_1", "Feb_2"])
+        {'month': ['Jan', 'Feb'], 'day': [1, 2]}
+        """
+        if not isinstance(s, list):
+            s = list(s)
+        keys, values = self._rust_obj.unformat_to_dict(s)
+        for k, v in values.items():
+            fmt = self._fmts[keys[k]]
+            if fmt is _identity:
+                continue
+            values[k] = [fmt(x) for fmt, x in zip(self._fmts, v)]
+        keys_sorted = [x[0] for x in sorted(keys.items(), key=lambda x: x[1])]
+        return {k: values[k] for k in keys_sorted}
 
     def match(self, s: str) -> bool:
         """Check if the string matches the pattern."""
@@ -101,6 +130,7 @@ class Pattern:
 
 
 def compile(ptn: str) -> Pattern:
+    """Compile a pattern string into a Pattern object."""
     if is_named_pattern(ptn):
         rust_obj = NamedFormatPattern(ptn)
     else:
@@ -139,7 +169,8 @@ class UnformattableMeta(type):
                     _ann = _ann.__name__
                 if fmt and _ann != fmt:
                     raise ValueError(
-                        f"format mismatch at {var}. {fmt} in pattern, {_ann} in annotation"
+                        f"format mismatch at {var}. {fmt} in pattern, {_ann} "
+                        "in annotation"
                     )
                 formats.append(_ann)
             cls.__unformat_pattern__ = ptn.with_formats(formats)

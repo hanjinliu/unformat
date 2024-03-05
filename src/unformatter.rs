@@ -54,7 +54,10 @@ pub trait PatternTrait {
 
     fn unformat(&self, s: &str) -> PyResult<(HashMap<String, usize>, Vec<String>)>;
 
-    fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
+    fn unformat_all(
+        &self,
+        s: Vec<&str>,
+    ) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
         let mut keys: HashMap<String, usize> = HashMap::new();
         let mut values: Vec<Vec<String>> = Vec::new();
         for s in s {
@@ -65,8 +68,27 @@ pub trait PatternTrait {
         Ok((keys, values))
     }
 
+    fn unformat_to_dict(
+        &self,
+        s: Vec<&str>,
+    ) -> PyResult<(HashMap<String, usize>, HashMap<String, Vec<String>>)> {
+        let mut keys: HashMap<String, usize> = HashMap::new();
+        let mut values: HashMap<String, Vec<String>> = HashMap::new();
+        for i in 0..self.vars().len() {
+            values.insert(self.vars()[i].value.clone(), Vec::new());
+        }
+        for s in s {
+            let (k, v) = self.unformat(s)?;
+            keys.extend(k);
+            for (key, value) in v.iter().enumerate() {
+                values.get_mut(&self.vars()[key].value).unwrap().push(value.clone());
+            }
+        }
+        Ok((keys, values))
+    }
+
     fn matches(&self, s: String) -> bool {
-        return self.parse_string(&s).is_ok();
+        self.parse_string(&s).is_ok()
     }
 
     fn formats(&self) -> Vec<String> {
@@ -195,6 +217,10 @@ impl FormatPattern {
         PatternTrait::unformat_all(self, s)
     }
 
+    pub fn unformat_to_dict(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, HashMap<String, Vec<String>>)> {
+        PatternTrait::unformat_to_dict(self, s)
+    }
+
     pub fn matches(&self, s: String) -> bool {
         PatternTrait::matches(self, s)
     }
@@ -315,6 +341,10 @@ impl NamedFormatPattern {
 
     pub fn unformat_all(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, Vec<Vec<String>>)> {
         PatternTrait::unformat_all(self, s)
+    }
+
+    pub fn unformat_to_dict(&self, s: Vec<&str>) -> PyResult<(HashMap<String, usize>, HashMap<String, Vec<String>>)> {
+        PatternTrait::unformat_to_dict(self, s)
     }
 
     pub fn matches(&self, s: String) -> bool {
